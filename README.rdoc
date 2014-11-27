@@ -1,28 +1,104 @@
-== README
+### chef
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+        # why chef
+        DRY
+        define abstract task -- adapt to different system/OS/HW
+        idempotent -- no worry about whether to run
 
-Things you may want to cover:
+### capistrano
 
-* Ruby version
+        # why capistrano?
+        define tasks, to config/interact with remote server -- install/config/run things on remote machine
 
-* System dependencies
+### nginx & unicorn
 
-* Configuration
+        # unicorn
+        gem 'unicorn'
+        bundle exec unicorn -c config/unicorn.rb
+        sudo service nginx restart
 
-* Database creation
+        # config/unicorn.rb
+        working_directory '/vagrant'
+        pid '/vagrant/tmp/pids/unicorn.pid'
+        stderr_path '/vagrant/log/unicorn.log'
+        stdout_path '/vagrant/log/unicorn.log'
+        listen '/tmp/unicorn.todo.sock'
+        worker_processes 2
+        timeout 30
 
-* Database initialization
+        # config/nginx.conf
+        upstream unicorn {
+          server unix:/tmp/unicorn.todo.sock fail_timeout=0;
+        }
+        ...
+        location @unicorn {
+          proxy_pass http://unicorn;
+        }
+        ...
 
-* How to run the test suite
 
-* Services (job queues, cache servers, search engines, etc.)
+        # nginx
+        vagrant ssh
+        sudo apt-get install nginx
+        cd /etc/nginx/site-enabled
+        sudo rm default
+        sudo ln -s /vagrant/config/nginx.conf todo
+        sudo service nginx restart
 
-* Deployment instructions
+        # config/nginx.conf
+        server {
+          listen 80 default;
+          root /vagrant/public;
+          try_files $uri/index.html $uri @unicorn;
+          location @unicorn {
+            proxy_pass http://localhost:3000;
+          }
 
-* ...
+          error_page 500 502 503 504 /500.html;
+        }
 
+### nginx
 
-Please feel free to use a different markup language if you do not plan to run
-<tt>rake doc:app</tt>.
+        # install on osx
+        brew install nginx
+        ln -sfv /usr/local/opt/nginx/*.plist ~/Library/LaunchAgents
+        lunchy start nginx      # lunchy/launchctl should under non-tmux shell
+
+        # config: /usr/local/etc/nginx/nginx.conf
+        # default port:8080
+        http://localhost:8080
+
+        # why nginx? its role?
+        http://stackoverflow.com/questions/4113299/ruby-on-rails-server-options/4113570#4113570
+        webrick/puma/unicorn...  == app server
+        nginx/apach == web server as reverse proxy, it will forward requests to app server
+        # why reverse proxy?
+        1. distribute requests to a cluster, each node run a app server
+        2. will buffer request/response
+        3. security
+
+### vagrant
+
+        # pakcage my own box(vm template)
+        vagrant package                 # package current vm into package.box
+        vagrant box add {{new-box-name}} package.box
+        vagrant list
+
+        # commands
+        # install varant & virtual-box from website (download .dmg installer)
+        choose VM boxes from http://vagrantcloud.com
+
+        vagrant init chef/ubuntu-14.04  # create a new Vagrantfile
+        vagrant up                      # will start all vms(will create new vms for the first time)
+        vagrant ssh {{vm-name}}
+        vagrant destroy                 # remove the vm from disk
+        vagrant halt/suspend/resume/status
+        vagrant reload                  # restart vm, load new Vagrantfile
+        vagrant provision               # provisions the vagrant machine(run just provisioing, e.g. Chef, Puppet
+
+        # box == VM template, stay the same and be used to create new VM,
+
+        # why vagrant?
+        config/interact with VM easier
+        package well-configured VM template and share
+
